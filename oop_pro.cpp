@@ -1,8 +1,44 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <curl/curl.h>
+
 using namespace std;
 
+// 🔥 ===== SUPABASE FUNCTION =====
+void sendToSupabase(string model, float rent, bool available) {
+    CURL *curl = curl_easy_init();
+
+    if (curl) {
+        string url = "https://dxxzokrwudxbgmalkali.supabase.co/rest/v1/vehicles";
+
+        string json = "{";
+        json += "\"model\":\"" + model + "\",";
+        json += "\"rent\":" + to_string(rent) + ",";
+        json += "\"available\":" + string(available ? "true" : "false");
+        json += "}";
+
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eHpva3J3dWR4YmdtYWxrYWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwOTUxMjcsImV4cCI6MjA5MDY3MTEyN30.5Iie8croGju4gACuBkQAYWZ2iz2qqev00IYdZGy5e1g");
+        headers = curl_slist_append(headers, "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eHpva3J3dWR4YmdtYWxrYWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwOTUxMjcsImV4cCI6MjA5MDY3MTEyN30.5Iie8croGju4gACuBkQAYWZ2iz2qqev00IYdZGy5e1g");
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json.c_str());
+
+        CURLcode res = curl_easy_perform(curl);
+
+        if (res == CURLE_OK)
+            cout << "✅ Saved to cloud!\n";
+        else
+            cout << "❌ Cloud save failed!\n";
+
+        curl_easy_cleanup(curl);
+    }
+}
+
+// ================= VEHICLE =================
 class Vehicle {
 public:
     int vehicleID;
@@ -25,6 +61,7 @@ public:
     }
 };
 
+// ================= CUSTOMER =================
 class Customer {
 public:
     int customerID;
@@ -36,6 +73,7 @@ public:
     }
 };
 
+// ================= BOOKING =================
 class Booking {
 public:
     int bookingID;
@@ -63,7 +101,6 @@ public:
         }
     }
 
-    // 🔥 FULL PAYMENT ONLY
     void makePayment() {
         if (totalAmount == 0) {
             cout << "No booking found!\n";
@@ -73,15 +110,15 @@ public:
         float amount;
 
         while (!isPaid) {
-            cout << "\nTotal Amount to Pay: " << totalAmount << endl;
-            cout << "Enter FULL Payment Amount: ";
+            cout << "\nTotal Amount: " << totalAmount << endl;
+            cout << "Enter FULL Payment: ";
             cin >> amount;
 
             if (amount == totalAmount) {
                 isPaid = true;
                 cout << "Payment successful!\n";
             } else {
-                cout << "Invalid amount! Please enter exact amount.\n";
+                cout << "Invalid amount!\n";
             }
         }
     }
@@ -98,24 +135,26 @@ public:
     }
 };
 
-// 🔐 Admin Login
+// 🔐 LOGIN (FIXED)
 bool login() {
     string username, password;
+
     cout << "Enter Username: ";
     cin >> username;
+
     cout << "Enter Password: ";
     cin >> password;
 
     if (username == "admin" && password == "1234") {
         cout << "Login Successful!\n";
         return true;
-    } else {
-        cout << "Invalid Login!\n";
-        return false;
     }
+
+    cout << "Invalid Login!\n";
+    return false;
 }
 
-// ➕ Add Vehicle
+// ➕ ADD VEHICLE
 void addNewVehicle(Vehicle v[], int &n) {
     int id;
     string model;
@@ -129,22 +168,25 @@ void addNewVehicle(Vehicle v[], int &n) {
     cin >> rent;
 
     v[n].addVehicle(id, model, rent);
+
+    // 🔥 SAVE TO CLOUD
+    sendToSupabase(model, rent, true);
+
     n++;
 
-    cout << "Vehicle added successfully!\n";
+    cout << "Vehicle added!\n";
 }
 
-// 📋 Display Vehicles
+// 📋 DISPLAY
 void displayVehicles(Vehicle v[], int n) {
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++)
         v[i].displayVehicle();
-    }
 }
 
-// 🔍 Search Vehicle
+// 🔍 SEARCH
 void searchVehicle(Vehicle v[], int n) {
     int id;
-    cout << "Enter Vehicle ID: ";
+    cout << "Enter ID: ";
     cin >> id;
 
     for (int i = 0; i < n; i++) {
@@ -153,53 +195,28 @@ void searchVehicle(Vehicle v[], int n) {
             return;
         }
     }
-    cout << "Vehicle not found!\n";
+    cout << "Not found!\n";
 }
 
-// 🔄 Return Vehicle
+// 🔄 RETURN
 void returnVehicle(Vehicle v[], int n) {
     int id;
-    cout << "Enter Vehicle ID: ";
+    cout << "Enter ID: ";
     cin >> id;
 
     for (int i = 0; i < n; i++) {
         if (v[i].vehicleID == id) {
             v[i].isAvailable = true;
-            cout << "Vehicle returned!\n";
+            cout << "Returned!\n";
             return;
         }
     }
 }
 
-// 💾 Save to file
-void saveToFile(Vehicle v[], int n) {
-    ofstream file("vehicles.txt");
-
-    for (int i = 0; i < n; i++) {
-        file << v[i].vehicleID << " "
-             << v[i].model << " "
-             << v[i].rentPerDay << " "
-             << v[i].isAvailable << endl;
-    }
-
-    file.close();
-    cout << "Data saved!\n";
-}
-
-// 📂 Load from file
-void loadFromFile(Vehicle v[], int &n) {
-    ifstream file("vehicles.txt");
-
-    n = 0;
-    while (file >> v[n].vehicleID >> v[n].model >> v[n].rentPerDay >> v[n].isAvailable) {
-        n++;
-    }
-
-    file.close();
-    cout << "Data loaded!\n";
-}
-
+// ================= MAIN =================
 int main() {
+    cout << "Program Started\n";   // 🔥 Debug
+
     if (!login()) return 0;
 
     Vehicle v[50];
@@ -207,73 +224,30 @@ int main() {
     Booking b;
 
     int vCount = 0;
-
     c[0].addCustomer(1, "Anshu");
 
     int choice;
 
     do {
-        cout << "\n===== MENU =====\n";
-        cout << "1. Add Vehicle\n";
-        cout << "2. Display Vehicles\n";
-        cout << "3. Search Vehicle\n";
-        cout << "4. Book Vehicle\n";
-        cout << "5. Return Vehicle\n";
-        cout << "6. Make Payment\n";
-        cout << "7. Save Data\n";
-        cout << "8. Load Data\n";
-        cout << "9. Exit\n";
-
+        cout << "\n1.Add 2.Display 3.Search 4.Book 5.Return 6.Pay 7.Exit\n";
         cin >> choice;
 
         switch (choice) {
-
-        case 1:
-            addNewVehicle(v, vCount);
-            break;
-
-        case 2:
-            displayVehicles(v, vCount);
-            break;
-
-        case 3:
-            searchVehicle(v, vCount);
-            break;
-
+        case 1: addNewVehicle(v, vCount); break;
+        case 2: displayVehicles(v, vCount); break;
+        case 3: searchVehicle(v, vCount); break;
         case 4: {
             int vid, days;
-            cout << "Enter Vehicle ID: ";
-            cin >> vid;
-            cout << "Enter Days: ";
-            cin >> days;
-
-            for (int i = 0; i < vCount; i++) {
-                if (v[i].vehicleID == vid) {
+            cin >> vid >> days;
+            for (int i = 0; i < vCount; i++)
+                if (v[i].vehicleID == vid)
                     b.createBooking(1001, v[i], c[0], days);
-                }
-            }
             break;
         }
-
-        case 5:
-            returnVehicle(v, vCount);
-            break;
-
-        case 6:
-            b.makePayment();
-            break;
-
-        case 7:
-            saveToFile(v, vCount);
-            break;
-
-        case 8:
-            loadFromFile(v, vCount);
-            break;
-
+        case 5: returnVehicle(v, vCount); break;
+        case 6: b.makePayment(); break;
         }
-
-    } while (choice != 9);
+    } while (choice != 7);
 
     return 0;
 }
