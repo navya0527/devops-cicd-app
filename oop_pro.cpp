@@ -1,26 +1,20 @@
 #include <iostream>
-#include <fstream>
 #include <string>
 #include <curl/curl.h>
 
 using namespace std;
 
-// 🔥 ===== SUPABASE FUNCTION =====
-void sendToSupabase(string model, float rent, bool available) {
+// 🔥 PUT YOUR API KEY
+string API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eHpva3J3dWR4YmdtYWxrYWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwOTUxMjcsImV4cCI6MjA5MDY3MTEyN30.5Iie8croGju4gACuBkQAYWZ2iz2qqev00IYdZGy5e1g";
+
+// ================= COMMON POST =================
+void sendPost(string url, string json) {
     CURL *curl = curl_easy_init();
 
     if (curl) {
-        string url = "https://dxxzokrwudxbgmalkali.supabase.co/rest/v1/vehicles";
-
-        string json = "{";
-        json += "\"model\":\"" + model + "\",";
-        json += "\"rent\":" + to_string(rent) + ",";
-        json += "\"available\":" + string(available ? "true" : "false");
-        json += "}";
-
         struct curl_slist *headers = NULL;
-        headers = curl_slist_append(headers, "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eHpva3J3dWR4YmdtYWxrYWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwOTUxMjcsImV4cCI6MjA5MDY3MTEyN30.5Iie8croGju4gACuBkQAYWZ2iz2qqev00IYdZGy5e1g");
-        headers = curl_slist_append(headers, "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4eHpva3J3dWR4YmdtYWxrYWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwOTUxMjcsImV4cCI6MjA5MDY3MTEyN30.5Iie8croGju4gACuBkQAYWZ2iz2qqev00IYdZGy5e1g");
+        headers = curl_slist_append(headers, ("apikey: " + API_KEY).c_str());
+        headers = curl_slist_append(headers, ("Authorization: Bearer " + API_KEY).c_str());
         headers = curl_slist_append(headers, "Content-Type: application/json");
 
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -29,225 +23,258 @@ void sendToSupabase(string model, float rent, bool available) {
 
         CURLcode res = curl_easy_perform(curl);
 
-        if (res == CURLE_OK)
-            cout << "✅ Saved to cloud!\n";
-        else
-            cout << "❌ Cloud save failed!\n";
+        cout << (res == CURLE_OK ? "✅ Data sent to cloud\n" : "❌ Error\n");
 
         curl_easy_cleanup(curl);
     }
 }
 
-// ================= VEHICLE =================
-class Vehicle {
-public:
-    int vehicleID;
-    string model;
-    bool isAvailable;
-    float rentPerDay;
+// ================= CALLBACK =================
+size_t writeCallback(void* contents, size_t size, size_t nmemb, string* output) {
+    output->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
 
-    void addVehicle(int id, string m, float rent) {
-        vehicleID = id;
-        model = m;
-        rentPerDay = rent;
-        isAvailable = true;
+// ================= GET VEHICLE BY ID =================
+string getVehicleById(int vid) {
+    CURL *curl = curl_easy_init();
+    string response;
+
+    if (curl) {
+        string url = "https://dxxzokrwudxbgmalkali.supabase.co/rest/v1/vehicles?vehicle_id=eq." + to_string(vid);
+
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, ("apikey: " + API_KEY).c_str());
+        headers = curl_slist_append(headers, ("Authorization: Bearer " + API_KEY).c_str());
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+        curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
     }
 
-    void displayVehicle() {
-        cout << "\nID: " << vehicleID
-             << "\nModel: " << model
-             << "\nRent/day: " << rentPerDay
-             << "\nStatus: " << (isAvailable ? "Available" : "Not Available") << endl;
+    return response;
+}
+
+// ================= UPDATE AVAILABILITY =================
+void updateVehicleAvailability(int vid) {
+    CURL *curl = curl_easy_init();
+
+    if (curl) {
+        string url = "https://dxxzokrwudxbgmalkali.supabase.co/rest/v1/vehicles?vehicle_id=eq." + to_string(vid);
+        string json = "{\"is_available\":false}";
+
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, ("apikey: " + API_KEY).c_str());
+        headers = curl_slist_append(headers, ("Authorization: Bearer " + API_KEY).c_str());
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PATCH");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json.c_str());
+
+        curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+
+        cout << "🚗 Vehicle marked as NOT AVAILABLE\n";
     }
-};
+}
+
+// ================= TABULAR DISPLAY =================
+void getVehicles() {
+    CURL *curl = curl_easy_init();
+    string response;
+
+    if (curl) {
+        string url = "https://dxxzokrwudxbgmalkali.supabase.co/rest/v1/vehicles";
+
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, ("apikey: " + API_KEY).c_str());
+        headers = curl_slist_append(headers, ("Authorization: Bearer " + API_KEY).c_str());
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+        CURLcode res = curl_easy_perform(curl);
+
+        if (res == CURLE_OK) {
+
+            cout << "\n=========== VEHICLE LIST ===========\n";
+            cout << "ID\tBrand\tModel\tRent\tStatus\n";
+            cout << "-----------------------------------\n";
+
+            size_t pos = 0;
+
+            while ((pos = response.find("\"vehicle_id\":", pos)) != string::npos) {
+
+                int id = stoi(response.substr(pos + 13));
+
+                size_t b = response.find("\"brand\":\"", pos);
+                string brand = response.substr(b + 9, response.find("\"", b + 9) - (b + 9));
+
+                size_t m = response.find("\"model\":\"", pos);
+                string model = response.substr(m + 9, response.find("\"", m + 9) - (m + 9));
+
+                size_t r = response.find("\"rent_per_day\":", pos);
+                float rent = stof(response.substr(r + 15));
+
+                size_t a = response.find("\"is_available\":", pos);
+                bool available = response.substr(a + 15, 5).find("true") != string::npos;
+
+                cout << id << "\t" << brand << "\t" << model << "\t"
+                     << rent << "\t" << (available ? "Available" : "Not Available") << endl;
+
+                pos++;
+            }
+
+            cout << "===================================\n";
+
+        } else {
+            cout << "❌ Failed to fetch data\n";
+        }
+
+        curl_easy_cleanup(curl);
+    }
+}
 
 // ================= CUSTOMER =================
-class Customer {
-public:
-    int customerID;
-    string name;
+void addCustomer() {
+    int id;
+    string name, phone, license;
 
-    void addCustomer(int id, string n) {
-        customerID = id;
-        name = n;
-    }
-};
+    cout << "Customer ID: "; cin >> id;
+    cout << "Name: "; cin >> name;
+    cout << "Phone: "; cin >> phone;
+    cout << "License No: "; cin >> license;
 
-// ================= BOOKING =================
-class Booking {
-public:
-    int bookingID;
-    int vehicleID;
-    int customerID;
-    int days;
-    float totalAmount;
-    bool isPaid;
+    string json = "{";
+    json += "\"customer_id\":" + to_string(id) + ",";
+    json += "\"name\":\"" + name + "\",";
+    json += "\"phone\":\"" + phone + "\",";
+    json += "\"license_no\":\"" + license + "\"}";
 
-    void createBooking(int bID, Vehicle &v, Customer &c, int d) {
-        if (v.isAvailable) {
-            bookingID = bID;
-            vehicleID = v.vehicleID;
-            customerID = c.customerID;
-            days = d;
-
-            totalAmount = days * v.rentPerDay;
-            isPaid = false;
-
-            v.isAvailable = false;
-
-            generateBill(v, c);
-        } else {
-            cout << "\nVehicle not available!\n";
-        }
-    }
-
-    void makePayment() {
-        if (totalAmount == 0) {
-            cout << "No booking found!\n";
-            return;
-        }
-
-        float amount;
-
-        while (!isPaid) {
-            cout << "\nTotal Amount: " << totalAmount << endl;
-            cout << "Enter FULL Payment: ";
-            cin >> amount;
-
-            if (amount == totalAmount) {
-                isPaid = true;
-                cout << "Payment successful!\n";
-            } else {
-                cout << "Invalid amount!\n";
-            }
-        }
-    }
-
-    void generateBill(Vehicle v, Customer c) {
-        cout << "\n===== BILL =====\n";
-        cout << "Booking ID: " << bookingID << endl;
-        cout << "Customer: " << c.name << endl;
-        cout << "Vehicle: " << v.model << endl;
-        cout << "Days: " << days << endl;
-        cout << "Total: " << totalAmount << endl;
-        cout << "Payment Status: " << (isPaid ? "Paid" : "Pending") << endl;
-        cout << "================\n";
-    }
-};
-
-// 🔐 LOGIN (FIXED)
-bool login() {
-    string username, password;
-
-    cout << "Enter Username: ";
-    cin >> username;
-
-    cout << "Enter Password: ";
-    cin >> password;
-
-    if (username == "admin" && password == "1234") {
-        cout << "Login Successful!\n";
-        return true;
-    }
-
-    cout << "Invalid Login!\n";
-    return false;
+    sendPost("https://dxxzokrwudxbgmalkali.supabase.co/rest/v1/customer", json);
 }
 
-// ➕ ADD VEHICLE
-void addNewVehicle(Vehicle v[], int &n) {
+// ================= VEHICLE =================
+void addVehicle() {
     int id;
-    string model;
+    string brand, model;
     float rent;
 
-    cout << "Enter Vehicle ID: ";
-    cin >> id;
-    cout << "Enter Model: ";
-    cin >> model;
-    cout << "Enter Rent per day: ";
-    cin >> rent;
+    cout << "Vehicle ID: "; cin >> id;
+    cout << "Brand: "; cin >> brand;
+    cout << "Model: "; cin >> model;
+    cout << "Rent per day: "; cin >> rent;
 
-    v[n].addVehicle(id, model, rent);
+    string json = "{";
+    json += "\"vehicle_id\":" + to_string(id) + ",";
+    json += "\"brand\":\"" + brand + "\",";
+    json += "\"model\":\"" + model + "\",";
+    json += "\"rent_per_day\":" + to_string(rent) + ",";
+    json += "\"is_available\":true}";
 
-    // 🔥 SAVE TO CLOUD
-    sendToSupabase(model, rent, true);
-
-    n++;
-
-    cout << "Vehicle added!\n";
+    sendPost("https://dxxzokrwudxbgmalkali.supabase.co/rest/v1/vehicles", json);
 }
 
-// 📋 DISPLAY
-void displayVehicles(Vehicle v[], int n) {
-    for (int i = 0; i < n; i++)
-        v[i].displayVehicle();
-}
+// ================= RENTAL =================
+void createRental() {
+    int rid, cid, vid, days;
 
-// 🔍 SEARCH
-void searchVehicle(Vehicle v[], int n) {
-    int id;
-    cout << "Enter ID: ";
-    cin >> id;
+    cout << "Rental ID: "; cin >> rid;
+    cout << "Customer ID: "; cin >> cid;
+    cout << "Vehicle ID: "; cin >> vid;
+    cout << "Number of days: "; cin >> days;
 
-    for (int i = 0; i < n; i++) {
-        if (v[i].vehicleID == id) {
-            v[i].displayVehicle();
-            return;
-        }
+    string data = getVehicleById(vid);
+
+    if (data == "[]") {
+        cout << "❌ Vehicle not found\n";
+        return;
     }
-    cout << "Not found!\n";
+
+    if (data.find("\"is_available\":false") != string::npos) {
+        cout << "❌ Vehicle booked\n";
+        return;
+    }
+
+    float rent = 0;
+
+    size_t pos = data.find("rent_per_day");
+    if (pos != string::npos) {
+        rent = stof(data.substr(pos + 14));
+    }
+
+    float total = rent * days;
+
+    cout << "💰 Rent/day: " << rent << endl;
+    cout << "💰 Total: " << total << endl;
+
+    string json = "{";
+    json += "\"rental_id\":" + to_string(rid) + ",";
+    json += "\"customer_id\":" + to_string(cid) + ",";
+    json += "\"vehicle_id\":" + to_string(vid) + ",";
+    json += "\"rent_date\":\"2026-04-02\",";
+    json += "\"return_date\":\"2026-04-05\",";
+    json += "\"total_cost\":" + to_string(total) + "}";
+
+    sendPost("https://dxxzokrwudxbgmalkali.supabase.co/rest/v1/rental", json);
+
+    updateVehicleAvailability(vid);
 }
 
-// 🔄 RETURN
-void returnVehicle(Vehicle v[], int n) {
-    int id;
-    cout << "Enter ID: ";
-    cin >> id;
+// ================= PAYMENT =================
+void makePayment() {
+    int pid, rid;
+    float amount;
 
-    for (int i = 0; i < n; i++) {
-        if (v[i].vehicleID == id) {
-            v[i].isAvailable = true;
-            cout << "Returned!\n";
-            return;
-        }
-    }
+    cout << "Payment ID: "; cin >> pid;
+    cout << "Rental ID: "; cin >> rid;
+    cout << "Amount: "; cin >> amount;
+
+    string json = "{";
+    json += "\"payment_id\":" + to_string(pid) + ",";
+    json += "\"rental_id\":" + to_string(rid) + ",";
+    json += "\"amount\":" + to_string(amount) + ",";
+    json += "\"payment_mode\":\"Cash\",";
+    json += "\"date_payment\":\"2026-04-02\"}";
+
+    sendPost("https://dxxzokrwudxbgmalkali.supabase.co/rest/v1/payment", json);
 }
 
 // ================= MAIN =================
 int main() {
-    cout << "Program Started\n";   // 🔥 Debug
-
-    if (!login()) return 0;
-
-    Vehicle v[50];
-    Customer c[5];
-    Booking b;
-
-    int vCount = 0;
-    c[0].addCustomer(1, "Anshu");
-
     int choice;
 
     do {
-        cout << "\n1.Add 2.Display 3.Search 4.Book 5.Return 6.Pay 7.Exit\n";
+        cout << "\n===== VEHICLE RENTAL SYSTEM =====\n";
+        cout << "1. Add Customer\n";
+        cout << "2. Add Vehicle\n";
+        cout << "3. Create Rental\n";
+        cout << "4. Make Payment\n";
+        cout << "5. Show Vehicles (Cloud)\n";
+        cout << "6. Exit\n";
+        cout << "Enter choice: ";
+
         cin >> choice;
 
-        switch (choice) {
-        case 1: addNewVehicle(v, vCount); break;
-        case 2: displayVehicles(v, vCount); break;
-        case 3: searchVehicle(v, vCount); break;
-        case 4: {
-            int vid, days;
-            cin >> vid >> days;
-            for (int i = 0; i < vCount; i++)
-                if (v[i].vehicleID == vid)
-                    b.createBooking(1001, v[i], c[0], days);
-            break;
+        switch(choice) {
+            case 1: addCustomer(); break;
+            case 2: addVehicle(); break;
+            case 3: createRental(); break;
+            case 4: makePayment(); break;
+            case 5: getVehicles(); break;
+            case 6: cout << "Exiting...\n"; break;
+            default: cout << "Invalid choice\n";
         }
-        case 5: returnVehicle(v, vCount); break;
-        case 6: b.makePayment(); break;
-        }
-    } while (choice != 7);
+
+    } while(choice != 6);
 
     return 0;
 }
